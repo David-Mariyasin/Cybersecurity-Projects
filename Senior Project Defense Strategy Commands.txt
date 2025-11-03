@@ -1,0 +1,71 @@
+
+Step 1: ACLs on Routers
+------------------------
+! Block Employee VLAN (192.168.20.0) from accessing Admin VLAN (192.168.10.0)
+R1:
+ena
+config t
+access-list 100 deny ip 192.168.20.0 0.0.0.255 192.168.10.0 0.0.0.255
+access-list 100 permit ip any any
+int g0/0/1.10
+ip access-group 100 in
+exit
+
+Step 2: Port Security on Switches
+---------------------------------
+S1:
+ena
+config t
+int range fa0/1-2
+switchport mode access
+switchport port-security
+switchport port-security maximum 1
+switchport port-security violation shutdown
+switchport port-security mac-address sticky
+exit
+
+S2:
+ena
+config t
+int range fa0/1-3
+switchport mode access
+switchport port-security
+switchport port-security maximum 1
+switchport port-security violation shutdown
+switchport port-security mac-address sticky
+exit
+
+Step 3: Firewall Simulation on R2
+---------------------------------
+! Allow only HTTP traffic to the server (192.168.30.10)
+R2:
+ena
+config t
+access-list 101 permit tcp any host 192.168.30.10 eq 80
+access-list 101 deny ip any host 192.168.30.10
+access-list 101 permit ip any any
+interface g0/0/1.30
+ip access-group 101 in
+exit
+
+Step 4: Testing
+---------------
+! From PC3 or PC4 (Employee VLAN), try:
+- ping 192.168.10.2 (Admin PC) → should fail
+- ping 192.168.30.10 (Server) → should fail unless HTTP is used
+- change MAC address on PC to 00FF.AABB.CCDD → port should shut down due to port security
+- Go to S2 and type the command: sh port-security int fa0/1. It has to be seen as shut down
+
+Step 5 (Optional): Turn the switch back on
+------------------------------------------
+-On S2
+ enable
+ config t
+ int fa0/1
+ shutdown
+ no shutdown
+ switchport port-security mac-address sticky
+ no switchport port-security mac-address sticky
+ show port-security interface fa0/1
+ show interface fa0/1 status
+
